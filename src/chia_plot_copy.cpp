@@ -12,7 +12,7 @@
 
 #define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
 #include <experimental/filesystem>
-
+#include <filesystem>
 #include <cxxopts.hpp>
 #include <stdiox.hpp>
 
@@ -167,7 +167,18 @@ uint64_t send_file(const std::string& src_path, const std::string& dst_host, con
 	return total_bytes;
 }
 
+std::vector<std::string> listFiles(const std::filesystem::path& path)
+{
+    std::vector<std::string> filePaths;
 
+    for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)) {
+        if (dirEntry.is_regular_file()) {
+            filePaths.push_back(dirEntry.path().string());
+        }
+    }
+
+    return filePaths;
+}
 int main(int argc, char** argv) try
 {
 #ifdef _WIN32
@@ -190,6 +201,7 @@ int main(int argc, char** argv) try
 	int threads = 10;
 	bool do_remove = false;
 	std::string target = "localhost";
+	std::string directory="";
 	std::vector<std::string> file_list;
 
 	options.allow_unrecognised_options().add_options()(
@@ -198,12 +210,19 @@ int main(int argc, char** argv) try
 		"t, target", "Target hostname / IP address (default = localhost)", cxxopts::value<std::string>(target))(
 		"r, nthreads", "Number of threads (default = 10)", cxxopts::value<int>(threads))(
 		"f, files", "List of plot files", cxxopts::value<std::vector<std::string>>(file_list))(
+		"i, directory", "directory", cxxopts::value<std::string>(directory))(		
 		"help", "Print help");
 
 	options.parse_positional("files");
 
 	const auto args = options.parse(argc, argv);
-
+ 	if(std::filesystem::is_directory(directory) && !std::filesystem::is_empty(directory)) {
+        std::vector<std::string> filePaths = listFiles(directory);
+        for(const auto& filePath : filePaths) {
+            std::cout << filePath << std::endl;
+            file_list.push_back(filePath);
+        }
+    }
 	if(args.count("help") || file_list.empty()) {
 		std::cout << options.help({""}) << std::endl;
 		return 0;
